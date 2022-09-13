@@ -1,5 +1,8 @@
+# hierarchyset and bvhset
+`Hierarchyset` is an abstract class you can implement to process and export data into hierarchical mocap formats. The key part to implement in a child class is the `load_mocap` method. You need to open the relevant files and construct your Segments. An example implementation is shown in bvhset, that reads in a bvh file using the open source package in this repo. To save to a bvh file you can call `save_bvh` once a file has been loaded.
+
 # bvh-python
-Python module for parsing BVH (Biovision hierarchical data) mocap files
+Python module for parsing BVH (Biovision hierarchical data) mocap files. Forked from original repo from user "20tab" to improve effeciency and extend with features.
 
 #### Instance Bvh object from .bvh file
 ```python
