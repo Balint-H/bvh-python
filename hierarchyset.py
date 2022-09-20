@@ -5,14 +5,15 @@ from abc import ABC, abstractmethod, abstractproperty
 from scipy.spatial.transform import Rotation as R
 from itertools import chain
 
+
 class HierarchySet(ABC):
 
+    segments: Dict[str, 'HierarchySet.Segment']
     root_segment: Optional['HierarchySet.Segment']
-    root_position: List[List]
+    root_position: np.ndarray
 
     @abstractmethod
     def __init__(self, mocap_file, rotation_labels='zyx', position_labels='xyz'):
-
         self.mocap_file = mocap_file
         self.list_marker = []
         self.list_emg = []
@@ -22,7 +23,7 @@ class HierarchySet(ABC):
         self.position_labels = position_labels
         self.frame_time = -1
         self.frame_count = 0
-        self.hierarchy = {}
+        self.segments = {}
 
     @property
     def depth_first_segment_list(self) -> List['HierarchySet.Segment']:
@@ -95,6 +96,11 @@ class HierarchySet(ABC):
     def save_bvh(self, save_path, number_format='.6f'):
         with open(save_path, 'w') as fp:
             self.write_to_bvh(fp, number_format)
+
+    def get_global_transform(self, segment_name):
+        transform = self.segments[segment_name].global_M
+        transform[:, :3, -1] += self.root_position - 1*np.array(self.root_segment.offset)
+        return transform
 
     class Segment:
 
@@ -207,6 +213,21 @@ class HierarchySet(ABC):
                 rotation_matrix_in_time[:, :, ax] = HierarchySet.Segment.norm(rotation_matrix_in_time[:, :, ax])
             return rotation_matrix_in_time
         # endregion
+
+        @property
+        def local_M(self):
+            M = np.empty((len(self.rotation), 4, 4))
+            M[:, :3, :3] = self.local_rotation.as_matrix()
+            M[:, :3, 3] = np.array(self.offset)
+            M[:, 3, :] = [0, 0, 0, 1]
+            return M
+
+        @property
+        def global_M(self):
+            if self.is_root:
+                return self.local_M
+            else:
+                return np.einsum('tij, tjk -> tik', self.parent_segment.global_M, self.local_M)
 
         def __repr__(self):
             return str("Segment: " + self.name)

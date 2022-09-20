@@ -1,14 +1,15 @@
-from markersets.convertsets.hierarchyset import HierarchySet
+from hierarchyset import HierarchySet
 from bvh import Bvh, BvhNode
 import numpy as np
 from scipy.spatial.transform import Rotation as R
+
 
 BVH_TRANSLATION_CHANNELS = "Xposition", "Yposition", "Zposition"
 BVH_ROTATION_CHANNELS = "Zrotation", "Yrotation", "Xrotation"
 
 
 class BvhSet(HierarchySet):
-    def __init__(self, mocap_file, rotation_labels='zyx', position_labels='xyz'):
+    def __init__(self, mocap_file, rotation_labels='ZYX', position_labels='xyz'):
         super(BvhSet, self).__init__(mocap_file=mocap_file,
                                             rotation_labels=rotation_labels, position_labels=position_labels)
 
@@ -28,28 +29,24 @@ class BvhSet(HierarchySet):
         self.root_position = get_frames(root_name, BVH_TRANSLATION_CHANNELS)
 
         root_rotation = R.from_euler(self.rotation_labels, get_frames(root_name, BVH_ROTATION_CHANNELS), degrees=True)
-        self.root_segment = HierarchySet.Segment(root_rotation, name=root_name, offset=mocap.joint_offset(root_name))
-        self.hierarchy[root_name] = self.root_segment
+        self.root_segment = HierarchySet.Segment(root_rotation,
+                                                 name=root_name,
+                                                 offset=mocap.joint_offset(root_name))
+        self.segments[root_name] = self.root_segment
 
         for parent_name, child_name in parent_child_names:
             rotation = R.from_euler(self.rotation_labels, get_frames(child_name, BVH_ROTATION_CHANNELS), degrees=True)
             offset = mocap.joint_offset(child_name)
-            segment = HierarchySet.Segment(rotation, self.hierarchy[parent_name],
+            segment = HierarchySet.Segment(rotation, self.segments[parent_name],
                                            offset=offset, name=child_name, is_local=True)
-            self.hierarchy[child_name] = segment
+            self.segments[child_name] = segment
 
         self.frame_count = mocap.nframes
         self.frame_time = mocap.frame_time
-
-    def get_emg_data(self, file_reader=None):
         pass
 
     def save_json(self, save_path, indent=None, **kwargs):
         raise NotImplementedError()
-
-    @property
-    def hip(self):
-        return None
 
     @staticmethod
     def depth_first_node_name_search(root_node: BvhNode):
@@ -63,10 +60,19 @@ class BvhSet(HierarchySet):
 
 
 def main():
-    path = r'tests/test_freebvh.bvh'
+    path = r'tests/walk1_subject5.bvh'
     mocap = BvhSet(path)
-    mocap.se_load_mocap()
+    mocap.load_mocap()
     mocap.save_bvh("test.bvh")
+    print(mocap.segments["RightFoot"].global_M[0])
+    import matplotlib.pyplot as plt
+
+    plt.plot(mocap.get_global_transform("RightFoot")[:, :, -1])
+
+    plt.figure()
+
+    plt.plot(mocap.get_global_transform("Hips")[:, :, -1])
+    plt.show()
     pass
 
 
